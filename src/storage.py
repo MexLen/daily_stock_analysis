@@ -377,6 +377,134 @@ class ConversationMessage(Base):
     created_at = Column(DateTime, default=datetime.now, index=True)
 
 
+class TradingPosition(Base):
+    """
+    模拟交易持仓表
+    """
+    __tablename__ = 'trading_positions'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    stock_code = Column(String(10), nullable=False, index=True)
+    stock_name = Column(String(50))
+    quantity = Column(Integer, nullable=False, default=0)
+    avg_cost = Column(Float, nullable=False, default=0.0)
+    current_price = Column(Float)
+    market_value = Column(Float)
+    profit_loss = Column(Float)
+    profit_loss_pct = Column(Float)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    __table_args__ = (
+        UniqueConstraint('stock_code', name='uix_trading_stock_code'),
+    )
+
+
+class TradingOrder(Base):
+    """
+    模拟交易委托记录表
+    """
+    __tablename__ = 'trading_orders'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    stock_code = Column(String(10), nullable=False, index=True)
+    stock_name = Column(String(50))
+    order_type = Column(String(10), nullable=False)  # buy/sell
+    quantity = Column(Integer, nullable=False)
+    price = Column(Float)  # None for market order
+    amount = Column(Float, nullable=False)
+    status = Column(String(20), nullable=False, default='pending')  # pending/filled/cancelled/failed
+    filled_quantity = Column(Integer, default=0)
+    filled_price = Column(Float)
+    filled_amount = Column(Float)
+    commission = Column(Float, default=0.0)  # 佣金
+    stamp_duty = Column(Float, default=0.0)  # 印花税（仅卖出）
+    transfer_fee = Column(Float, default=0.0)  # 过户费（仅沪市）
+    total_fee = Column(Float, default=0.0)  # 总手续费
+    error_message = Column(Text)
+    created_at = Column(DateTime, default=datetime.now, index=True)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class TradingAccount(Base):
+    """
+    模拟交易账户表
+    """
+    __tablename__ = 'trading_account'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    total_balance = Column(Float, nullable=False, default=1000000.0)
+    cash_balance = Column(Float, nullable=False, default=1000000.0)
+    market_value = Column(Float, nullable=False, default=0.0)
+    profit_loss = Column(Float, nullable=False, default=0.0)
+    profit_loss_pct = Column(Float, nullable=False, default=0.0)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class TradingStopLoss(Base):
+    """
+    止盈止损设置表
+    """
+    __tablename__ = 'trading_stop_loss'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    stock_code = Column(String(10), nullable=False, index=True)
+    stock_name = Column(String(50))
+    
+    # 止盈设置
+    take_profit_price = Column(Float)  # 止盈价格
+    take_profit_pct = Column(Float)  # 止盈百分比（相对于成本价）
+    
+    # 止损设置
+    stop_loss_price = Column(Float)  # 止损价格
+    stop_loss_pct = Column(Float)  # 止损百分比（相对于成本价）
+    
+    # 状态
+    is_active = Column(Boolean, default=True)  # 是否激活
+    triggered_type = Column(String(20))  # 触发类型: take_profit/stop_loss/not_triggered
+    triggered_at = Column(DateTime)  # 触发时间
+    
+    # 关联持仓
+    position_id = Column(Integer, ForeignKey('trading_positions.id'))
+    
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    __table_args__ = (
+        UniqueConstraint('stock_code', name='uix_stop_loss_stock_code'),
+    )
+
+class TradingAccountHistory(Base):
+    """
+    模拟交易账户历史记录表
+    
+    用于记录账户每日净值，用于计算收益率曲线
+    """
+    __tablename__ = 'trading_account_history'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    
+    # 账户快照
+    total_balance = Column(Float, nullable=False)  # 总资产
+    cash_balance = Column(Float, nullable=False)  # 可用资金
+    market_value = Column(Float, nullable=False)  # 持仓市值
+    profit_loss = Column(Float, nullable=False)  # 总盈亏
+    profit_loss_pct = Column(Float, nullable=False)  # 总盈亏百分比
+    
+    # 收益率数据
+    daily_return_pct = Column(Float)  # 日收益率（相对于前一交易日）
+    cumulative_return_pct = Column(Float)  # 累计收益率（相对于初始资金）
+    
+    # 记录时间
+    record_date = Column(Date, nullable=False, index=True)  # 记录日期
+    created_at = Column(DateTime, default=datetime.now, index=True)
+
+    __table_args__ = (
+        UniqueConstraint('record_date', name='uix_account_history_date'),
+        Index('ix_account_history_date', 'record_date'),
+    )
+
+
 class DatabaseManager:
     """
     数据库管理器 - 单例模式
